@@ -1,0 +1,19 @@
+{
+  "name": "zls/saiyan",
+  "description": "使用 Golang 处理 PHP 请求",
+  "type": "library",
+  "license": "MIT",
+  "minimum-stability": "dev",
+  "authors": [
+    {
+      "name": "影浅",
+      "email": "seekwe@gmail.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "Zls\\Saiyan\\": "src/"
+    }
+  },
+  "require": {}
+}

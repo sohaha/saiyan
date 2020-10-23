@@ -2,6 +2,8 @@ package saiyan
 
 import (
 	"context"
+	"github.com/sohaha/zlsgo/zjson"
+	"github.com/sohaha/zlsgo/zstring"
 	"github.com/sohaha/zlsgo/zutil"
 	"io"
 	"os"
@@ -119,14 +121,22 @@ func (e *Engine) Collect() EngineCollect {
 func (e *Engine) Close() {
 	e.release(0)
 	close(e.pool)
-	e = nil
 }
 
 func (e *Engine) release(alive uint64) {
 	if alive > 0 {
-		for i := alive; i > 0; i-- {
+		i := alive
+		for {
+			e.mutex.Lock()
+			if e.collectErr.aliveWorkerSum <= e.conf.WorkerSum || i == 0 {
+				e.mutex.Unlock()
+				break
+			}
+			e.collectErr.aliveWorkerSum--
+			e.mutex.Unlock()
 			p := <-e.pool
 			p.close()
+			i--
 		}
 		return
 	}
@@ -136,6 +146,7 @@ func (e *Engine) release(alive uint64) {
 		p := <-e.pool
 		p.close()
 	}
+	e.mutex.Unlock()
 	e.collectErr = &EngineCollect{}
 }
 
@@ -148,19 +159,62 @@ func (e *Engine) Release(aliveWorker ...uint64) {
 	if current <= alive {
 		return
 	}
-	if sum := current - alive; sum > 0 {
-		e.aliveWorkerSumWithLock(int64(-sum), true)
-		e.release(sum)
-	}
+	e.release(current - alive)
 }
 
 func (e *Engine) SendNoResult(data []byte, flags byte) (err error) {
-	var p *work
-	p, err = e.getPool()
+	var w *work
+	w, err = e.getPool()
 	if err != nil {
 		return
 	}
-	return p.Connect.Send(data, flags)
+	return w.Connect.Send(data, flags)
+}
+
+func (e *Engine) sendRequest(v *saiyanVar) (headerResult, result []byte, prefix Prefix, err error) {
+	var header []byte
+	header, err = zjson.Marshal(v.request)
+	if err != nil {
+		return
+	}
+	var w *work
+	w, err = e.getPool()
+	if err != nil {
+		return
+	}
+	defer func() {
+		if err == nil {
+			go e.pubPool(w)
+		} else {
+			go e.closePool(w)
+		}
+	}()
+	err = w.Connect.Send(header, PayloadControl)
+	if err != nil {
+		return
+	}
+	var body []byte
+	if v.request.Parsed {
+		if body, err = zjson.Marshal(v.request.body); err != nil {
+			return
+		}
+	} else if v.request.body != nil {
+		body, _ = v.request.body.([]byte)
+	}
+	headerResult, prefix, err = w.send(body, 0, e.conf.MaxExecTimeout)
+	if err == nil {
+		result, _, err = w.Connect.Receive()
+	}
+	if err == io.EOF {
+		err = ErrProcessDeath
+	}
+	return
+}
+
+func (e *Engine) SendTask(taskName string) (result []byte, err error) {
+	json, _ := zjson.Set(`{"type":"task"}`, "task", taskName)
+	result, _, err = e.Send(zstring.String2Bytes(json), PayloadControl|PayloadRaw)
+	return
 }
 
 func (e *Engine) Send(data []byte, flags byte) (result []byte, prefix Prefix, err error) {

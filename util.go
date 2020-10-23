@@ -17,7 +17,6 @@ const (
 	PayloadRaw     byte = 4
 	PayloadError   byte = 8
 	PayloadControl byte = 16
-	PayloadJSON
 )
 
 var (
@@ -30,7 +29,7 @@ var (
 type Prefix [17]byte
 
 func NewPrefix() Prefix {
-	return Prefix([17]byte{})
+	return [17]byte{}
 }
 
 func (p Prefix) String() string {

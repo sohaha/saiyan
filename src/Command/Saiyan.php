@@ -2,10 +2,12 @@
 
 namespace Zls\Saiyan\Command;
 
+use Zls;
 use Zls\Saiyan\Parse;
 use Zls\Saiyan\Relay;
 use Z;
 use Zls\Command\Command;
+use Zls_Task;
 
 class Saiyan extends Command
 {
@@ -28,17 +30,31 @@ class Saiyan extends Command
         ini_set('display_errors', 'stderr');
         $relay = new Relay(STDIN, STDOUT);
         $flags = 0;
-        $parse = new Parse();
-        $zlsConfig = Z::config();
+        $getConfig = Zls::getConfig();
         while (true) {
-            $d = $relay->receive($flags);
-            if (is_null($d)) {
+            $args = $relay->receive($flags);
+            if (is_null($args)) {
                 continue;
             }
             try {
-                $relay->respond($parse->Body($zlsConfig, $d, $flags));
+                $type = Z::arrayGet($args, 'type');
+                $content = "";
+                switch ($type) {
+                    case 'task':
+                        $activity = str_replace('/', '_', Z::arrayGet($args, 'task'));
+                        if ($activity) {
+                            $taskName = $getConfig->getTaskDirName() . '_' . $activity;
+                            $taskObject = z::factory($taskName, true);
+                            Z::throwIf(!($taskObject instanceof Zls_Task), 500, '[ ' . $taskName . ' ] not a valid Zls_Task', 'ERROR');
+                            ob_start();
+                            $taskObject->_execute($args);
+                            $content = ob_get_clean();
+                        }
+                    default:
+                }
+                $relay->send($content, Parse::PAYLOAD_RAW);
             } catch (\Exception $e) {
-                $relay->send($e->getMessage(), Relay::PAYLOAD_CONTROL & Relay::PAYLOAD_ERROR);
+                $relay->send($e->getMessage(), Parse::PAYLOAD_CONTROL & Parse::PAYLOAD_ERROR);
             }
         }
     }
@@ -61,7 +77,7 @@ class Saiyan extends Command
     public function commands()
     {
         return [
-            ' start'   => ['Start the saiyan server']
+            ' start' => ['Start the saiyan server']
         ];
     }
 }

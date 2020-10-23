@@ -20,7 +20,7 @@ type Request struct {
 	Parsed      bool              `json:"parsed"`
 	Uploads     *fileTree         `json:"uploads"`
 	UploadFiles []*FileUpload     `json:"-"`
-	Body        interface{}       `json:"body"`
+	body        interface{}
 }
 
 const (
@@ -54,7 +54,7 @@ func (e *Engine) newRequest(c *znet.Context, r *http.Request, v *saiyanVar) (err
 	req.Method = r.Method
 	req.URI = r.URL.Path
 	req.Header = r.Header
-	req.Body = ""
+	req.body = ""
 	req.Parsed = false
 	req.Cookies = map[string]string{}
 	req.RawQuery = r.URL.RawQuery
@@ -79,7 +79,7 @@ func (e *Engine) newRequest(c *znet.Context, r *http.Request, v *saiyanVar) (err
 	case contentStream:
 		body, err := ioutil.ReadAll(r.Body)
 		if err == nil {
-			req.Body = zstring.Bytes2String(body)
+			req.body = zstring.Bytes2String(body)
 		}
 		return err
 	case contentMultipart:
@@ -92,7 +92,7 @@ func (e *Engine) newRequest(c *znet.Context, r *http.Request, v *saiyanVar) (err
 		if err = r.ParseForm(); err != nil {
 			return err
 		}
-		req.Body = parseData(r)
+		req.body = parseData(r)
 	}
 	req.Parsed = true
 	return nil

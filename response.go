@@ -4,8 +4,6 @@ import (
 	"errors"
 	"github.com/sohaha/zlsgo/zjson"
 	"github.com/sohaha/zlsgo/znet"
-	"github.com/sohaha/zlsgo/zstring"
-	"net/http"
 )
 
 type Response struct {
@@ -15,22 +13,25 @@ type Response struct {
 	Body    string              `json:"body"`
 }
 
-func (e *Engine) newResponse(c *znet.Context, v *saiyanVar, b []byte, p Prefix) {
+func (e *Engine) newResponse(c *znet.Context, v *saiyanVar, header, result []byte, p Prefix) {
 	if !p.HasFlag(PayloadControl) {
 		c.WithValue(HttpErrKey, errors.New("error in type"))
 		return
 	}
+
 	context := v.response
-	context.Code = http.StatusNoContent
 	context.Type = znet.ContentTypePlain
 	context.Content = nil
-	j := zjson.ParseBytes(b)
+
+	j := zjson.ParseBytes(header)
+
 	context.Code = j.Get("status").Int()
-	if p.HasFlag(PayloadError) {
+	if p.HasFlag(PayloadError) || context.Code == 0 {
 		context.Code = 500
 	} else {
-		context.Content = zstring.String2Bytes(j.Get("body").String())
+		context.Content = result
 	}
+
 	cookies := j.Get("cookies")
 	if cookies.IsArray() {
 		cookies.ForEach(func(key, value zjson.Res) bool {
@@ -39,6 +40,7 @@ func (e *Engine) newResponse(c *znet.Context, v *saiyanVar, b []byte, p Prefix) 
 			return true
 		})
 	}
+
 	headers := j.Get("headers")
 	if headers.IsObject() {
 		headers.ForEach(func(key, value zjson.Res) bool {
@@ -46,9 +48,13 @@ func (e *Engine) newResponse(c *znet.Context, v *saiyanVar, b []byte, p Prefix) 
 			for i := range v {
 				c.SetHeader(key.String(), v[i].String())
 			}
-
 			return true
 		})
 	}
 	c.SetContent(context)
+
+	if c.Code != 200 {
+		c.Log.Warn(c.Code)
+	}
+
 }

@@ -34,7 +34,7 @@ class Http
             $k = array_shift($header);
             $c = trim(join(':', $header));
             if (!$c) {
-                if (preg_match('/HTTP\/1.1 ([\d]{3}) \w+/i', $k, $code) !== false) {
+                if (!!preg_match('/HTTP\/1.1 ([\d]{3}) \w+/i', $k, $code)) {
                     $result['status'] = $code[1];
                 }
                 continue;
@@ -86,9 +86,9 @@ class Http
         $parsed = Cfg::get("resident.parsed");
         if ($parsed) {
             Cfg::set('post', $data);
-        } else {
+        } else{
             $__SERVER = Cfg::get("server", []);
-            $__SERVER['ZLS_POSTRAW'] = $data['body'];
+            $__SERVER['ZLS_POSTRAW'] = $data;
             Cfg::set('server', $__SERVER);
         }
     }

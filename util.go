@@ -4,9 +4,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/sohaha/zlsgo/zstring"
 	"os"
 	"strconv"
+
+	"github.com/sohaha/zlsgo/zshell"
+	"github.com/sohaha/zlsgo/zstring"
 )
 
 const (
@@ -91,11 +93,15 @@ func (e *Engine) aliveWorkerSumWithLock(i int64, upload bool) uint64 {
 	return aliveWorkerSum
 }
 
-func testWork(p *work) error {
+func testWork(e *Engine, p *work) error {
 	errTip := fmt.Errorf("php service is illegal. Docs: %v\n", "https://docs.73zls.com/zlsgo/#/bd5f3e29-b914-4d20-aa48-5f7c9d629d2b")
 	pid := strconv.Itoa(os.Getpid())
 	data, _, err := p.send(zstring.String2Bytes(pid), PayloadEmpty, 2)
 	if err != nil {
+		code, _, errStr, _ := zshell.Run(e.conf.PHPExecPath + " " + e.conf.Command)
+		if code != 0 && errStr !="" {
+			errTip = errors.New(errStr)
+		}
 		return errTip
 	}
 	rPid := zstring.Bytes2String(data)

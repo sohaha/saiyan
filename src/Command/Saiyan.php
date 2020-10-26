@@ -27,7 +27,6 @@ class Saiyan extends Command
 
     public function start($args)
     {
-        ini_set('display_errors', 'stderr');
         $relay = new Relay(STDIN, STDOUT);
         $flags = 0;
         $getConfig = Zls::getConfig();

@@ -2,6 +2,7 @@ package saiyan
 
 import (
 	"errors"
+
 	"github.com/sohaha/zlsgo/zjson"
 	"github.com/sohaha/zlsgo/znet"
 )
@@ -41,20 +42,26 @@ func (e *Engine) newResponse(c *znet.Context, v *saiyanVar, header, result []byt
 		})
 	}
 
+	showContext := true
+
 	headers := j.Get("headers")
 	if headers.IsObject() {
 		headers.ForEach(func(key, value zjson.Res) bool {
 			v := value.Array()
+			k := key.String()
+			if k == "Location" {
+				showContext = false
+				c.Redirect(v[0].String(), 301)
+				return true
+			}
 			for i := range v {
-				c.SetHeader(key.String(), v[i].String())
+				c.SetHeader(k, v[i].String())
 			}
 			return true
 		})
 	}
-	c.SetContent(context)
 
-	if c.Code != 200 {
-		c.Log.Warn(c.Code)
+	if showContext {
+		c.SetContent(context)
 	}
-
 }

@@ -70,7 +70,7 @@ class Http
             'files' => $__FILES,
             'setHeader' => [],
             'setCookie' => [],
-            'saiya' => [
+            'resident' => [
                 'parsed' => $data['parsed'],
             ],
         ];
@@ -83,9 +83,9 @@ class Http
 
     public function setBody($data)
     {
-        $parsed = Cfg::get("resident.parsed");
+        $parsed = Z::arrayGet(Cfg::get("resident",[]),'parsed');
         if ($parsed) {
-            Cfg::set('post', $data);
+            Cfg::set('post', json_decode($data,true));
         } else{
             $__SERVER = Cfg::get("server", []);
             $__SERVER['ZLS_POSTRAW'] = $data;

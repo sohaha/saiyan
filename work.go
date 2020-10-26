@@ -2,9 +2,6 @@ package saiyan
 
 import (
 	"context"
-	"github.com/sohaha/zlsgo/zjson"
-	"github.com/sohaha/zlsgo/zstring"
-	"github.com/sohaha/zlsgo/zutil"
 	"io"
 	"os"
 	"os/exec"
@@ -12,6 +9,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sohaha/zlsgo/zjson"
+	"github.com/sohaha/zlsgo/zstring"
+	"github.com/sohaha/zlsgo/zutil"
 )
 
 type (
@@ -80,7 +81,7 @@ func New(c ...Conf) (*Engine, error) {
 		e.aliveWorkerSumWithLock(1, true)
 		w, err := e.newWorker()
 		if err == nil {
-			err = testWork(w)
+			err = testWork(e,w)
 		}
 		if err != nil {
 			return e, err

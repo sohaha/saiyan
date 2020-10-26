@@ -75,7 +75,7 @@ class Relay
         }
         try {
             if ($flags === 0) {
-                $this->http->setBody($data);
+                $this->http->setBody($result);
                 list($header, $content) = $this->http->run();
                 $headerErr = $this->send((string)@json_encode($header), Parse::PAYLOAD_CONTROL);
                 $contentErr = $this->send($content, 0);

@@ -75,6 +75,18 @@ class Http
             ],
         ];
         Cfg::setArray($arr);
+        Z::eventBind(ZLS_PREFIX . 'Saiyan', function () use (&$arr) {
+            $arr['server'] = [];
+            $arr['cookie'] = [];
+            $arr['get'] = [];
+            $arr['post'] = [];
+            $arr['files'] = [];
+            $arr['setHeader'] = [];
+            $arr['setCookie'] = [];
+            $arr['resident'] = [];
+            Z::di(true)->remove();
+            Z::resetZls();
+        });
         $zlsConfig->setAppDir(ZLS_APP_PATH)
             ->getRequest()
             ->setPathInfo($__SERVER['PATH_INFO']);
@@ -83,10 +95,10 @@ class Http
 
     public function setBody($data)
     {
-        $parsed = Z::arrayGet(Cfg::get("resident",[]),'parsed');
+        $parsed = Z::arrayGet(Cfg::get("resident", []), 'parsed');
         if ($parsed) {
-            Cfg::set('post', json_decode($data,true));
-        } else{
+            Cfg::set('post', json_decode($data, true));
+        } else {
             $__SERVER = Cfg::get("server", []);
             $__SERVER['ZLS_POSTRAW'] = $data;
             Cfg::set('server', $__SERVER);
@@ -95,18 +107,6 @@ class Http
 
     public function recovery()
     {
-        $arr = [
-            'server' => [],
-            'cookie' => [],
-            'get' => [],
-            'post' => [],
-            'files' => [],
-            'setHeader' => [],
-            'setCookie' => [],
-            'resident' => [],
-        ];
-        Cfg::setArray($arr);
-        Z::eventEmit(ZLS_PREFIX . 'DEFER');
-        Z::resetZls();
+        Z::eventEmit(ZLS_PREFIX . 'Saiyan');
     }
 }

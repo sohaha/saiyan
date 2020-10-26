@@ -1,13 +1,14 @@
 package saiyan
 
 import (
-	"github.com/sohaha/zlsgo/zfile"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"sync"
+
+	"github.com/sohaha/zlsgo/zfile"
 )
 
 const (
@@ -24,7 +25,7 @@ type FileUpload struct {
 	Size int64  `json:"size"`
 	// See http://php.net/manual/en/features.file-upload.errors.php
 	Error        int    `json:"error"`
-	TempFilename string `json:"tmpName"`
+	TempFilename string `json:"tmp_name"`
 	header       *multipart.FileHeader
 }
 

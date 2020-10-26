@@ -97,7 +97,8 @@ class Http
     {
         $parsed = Z::arrayGet(Cfg::get("resident", []), 'parsed');
         if ($parsed) {
-            Cfg::set('post', json_decode($data, true));
+            $data = json_decode($data, true);
+            Cfg::set('post', $data);
         } else {
             $__SERVER = Cfg::get("server", []);
             $__SERVER['ZLS_POSTRAW'] = $data;

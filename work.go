@@ -81,7 +81,7 @@ func New(c ...Conf) (*Engine, error) {
 		e.aliveWorkerSumWithLock(1, true)
 		w, err := e.newWorker()
 		if err == nil {
-			err = testWork(e,w)
+			err = testWork(e, w)
 		}
 		if err != nil {
 			return e, err
@@ -200,7 +200,11 @@ func (e *Engine) sendRequest(v *saiyanVar) (headerResult, result []byte, prefix 
 			return
 		}
 	} else if v.request.body != nil {
-		body, _ = v.request.body.([]byte)
+		if s, ok := v.request.body.(string); ok {
+			body = zstring.String2Bytes(s)
+		} else {
+			body, _ = v.request.body.([]byte)
+		}
 	}
 	headerResult, prefix, err = w.send(body, 0, e.conf.MaxExecTimeout)
 	if err == nil {

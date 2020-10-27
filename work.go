@@ -200,10 +200,12 @@ func (e *Engine) sendRequest(v *saiyanVar) (headerResult, result []byte, prefix 
 			return
 		}
 	} else if v.request.body != nil {
-		if s, ok := v.request.body.(string); ok {
-			body = zstring.String2Bytes(s)
-		} else {
-			body, _ = v.request.body.([]byte)
+		var ok bool
+		body, ok = v.request.body.([]byte)
+		if !ok {
+			if s, ok := v.request.body.(string); ok {
+				body = zstring.String2Bytes(s)
+			}
 		}
 	}
 	headerResult, prefix, err = w.send(body, 0, e.conf.MaxExecTimeout)

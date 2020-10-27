@@ -1,12 +1,12 @@
 package saiyan
 
 import (
-	"github.com/sohaha/zlsgo/znet"
-	"github.com/sohaha/zlsgo/zstring"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/sohaha/zlsgo/znet"
 )
 
 type Request struct {
@@ -79,7 +79,7 @@ func (e *Engine) newRequest(c *znet.Context, r *http.Request, v *saiyanVar) (err
 	case contentStream:
 		body, err := ioutil.ReadAll(r.Body)
 		if err == nil {
-			req.body = zstring.Bytes2String(body)
+			req.body = body
 		}
 		return err
 	case contentMultipart:

@@ -50,7 +50,6 @@ func (r *Request) contentType() int {
 func (e *Engine) newRequest(c *znet.Context, r *http.Request, v *saiyanVar) (err error) {
 	req := v.request
 	req.RemoteAddr = c.GetClientIP()
-	req.Protocol = r.Proto
 	req.Method = r.Method
 	req.URI = r.URL.Path
 	req.Header = r.Header
@@ -61,7 +60,12 @@ func (e *Engine) newRequest(c *znet.Context, r *http.Request, v *saiyanVar) (err
 	req.UploadFiles = []*FileUpload{}
 	req.Uploads = &fileTree{}
 
-	req.Header.Add("host", c.Request.Host)
+	host := strings.Split(c.Host(), "://")
+	req.Protocol = "HTTP/1.0"
+	if host[0] == "https" {
+		req.Protocol = "HTTP/2.0"
+	}
+	req.Header.Add("host", host[1])
 
 	if e.conf.TrimPrefix != "" {
 		req.URI = strings.TrimPrefix(req.URI, e.conf.TrimPrefix)

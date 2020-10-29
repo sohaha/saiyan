@@ -65,6 +65,7 @@ func New(c ...Conf) (*Engine, error) {
 	if len(c) > 0 {
 		c[0](conf)
 	}
+
 	if conf.WorkerSum == 0 {
 		conf.WorkerSum = 1
 	}
@@ -76,6 +77,9 @@ func New(c ...Conf) (*Engine, error) {
 		conf:       conf,
 		pool:       make(chan *work, conf.finalMaxWorkerSum),
 		collectErr: &EngineCollect{},
+	}
+	if err := testPHP(conf.PHPExecPath); err != nil {
+		return e, err
 	}
 	for i := uint64(0); i < conf.WorkerSum; i++ {
 		e.aliveWorkerSumWithLock(1, true)

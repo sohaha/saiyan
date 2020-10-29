@@ -22,7 +22,7 @@ const (
 )
 
 var (
-	ErrExecTimeout  = errors.New("execution timeout")
+	ErrExecTimeout  = errors.New("maximum execution time ")
 	ErrProcessDeath = errors.New("process death")
 	ErrWorkerBusy   = errors.New("worker busy")
 	ErrWorkerFailed = errors.New("failed to initialize worker")
@@ -99,7 +99,7 @@ func testWork(e *Engine, p *work) error {
 	data, _, err := p.send(zstring.String2Bytes(pid), PayloadEmpty, 2)
 	if err != nil {
 		code, _, errStr, _ := zshell.Run(e.conf.PHPExecPath + " " + e.conf.Command)
-		if code != 0 && errStr !="" {
+		if code != 0 && errStr != "" {
 			errTip = errors.New(errStr)
 		}
 		return errTip
@@ -107,6 +107,14 @@ func testWork(e *Engine, p *work) error {
 	rPid := zstring.Bytes2String(data)
 	if pid != rPid {
 		return errTip
+	}
+	return nil
+}
+
+func testPHP(php string) error {
+	code, _, _, _ := zshell.Run(php + " -v")
+	if code != 0 {
+		return errors.New("please install PHP first")
 	}
 	return nil
 }

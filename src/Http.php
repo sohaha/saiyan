@@ -56,6 +56,7 @@ class Http
             $__SERVER['HTTP_' . str_replace('-', '_', $key)] = $value[0];
         }
         $__SERVER['REQUEST_METHOD'] = $data['method'];
+        $__SERVER['REMOTE_ADDR'] = $data['remoteAddr'];
         $__SERVER['PATH_INFO'] = $data['uri'];
         if ($data['protocol'] === "HTTP/2.0") {
             $__SERVER['HTTPS'] = 'on';

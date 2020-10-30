@@ -1,8 +1,11 @@
 package saiyan
 
 import (
-	"github.com/sohaha/zlsgo/znet"
+	"path/filepath"
 	"sync/atomic"
+
+	"github.com/sohaha/zlsgo/zfile"
+	"github.com/sohaha/zlsgo/znet"
 )
 
 func (e *Engine) BindHttpHandler(r *znet.Engine, middlewares ...znet.HandlerFunc) {
@@ -11,6 +14,10 @@ func (e *Engine) BindHttpHandler(r *znet.Engine, middlewares ...znet.HandlerFunc
 }
 
 func (e *Engine) httpHandler(c *znet.Context) {
+	if file, ok := e.exportFile(c.Request.URL.Path); ok {
+		c.File(file)
+		return
+	}
 	v, _ := saiyan.Get().(*saiyanVar)
 	defer func() {
 		saiyan.Put(v)
@@ -45,4 +52,26 @@ func (e *Engine) httpErr(c *znet.Context, err error) {
 			}
 		}
 	}()
+}
+
+func (e *Engine) exportFile(file string) (string, bool) {
+	if e.conf.StaticResourceDir == "" {
+		return "", false
+	}
+	file = e.conf.StaticResourceDir + file
+	ext := filepath.Ext(file)
+	if ext == "" {
+		file = file + "index.html"
+		ext = filepath.Ext(file)
+	}
+	if !zfile.FileExist(file) {
+		return "", false
+	}
+
+	for i := range e.conf.ForbidStaticResourceSuffix {
+		if ext == e.conf.ForbidStaticResourceSuffix[i] {
+			return "", false
+		}
+	}
+	return file, true
 }

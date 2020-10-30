@@ -36,16 +36,18 @@ type (
 		Close       bool
 	}
 	Config struct {
-		PHPExecPath       string
-		Command           string
-		WorkerSum         uint64
-		MaxWorkerSum      uint64
-		finalMaxWorkerSum uint64
-		ReleaseTime       uint64
-		MaxRequests       uint64
-		MaxWaitTimeout    uint64
-		MaxExecTimeout    uint64
-		TrimPrefix        string
+		PHPExecPath                string
+		Command                    string
+		WorkerSum                  uint64
+		MaxWorkerSum               uint64
+		finalMaxWorkerSum          uint64
+		ReleaseTime                uint64
+		MaxRequests                uint64
+		MaxWaitTimeout             uint64
+		MaxExecTimeout             uint64
+		TrimPrefix                 string
+		StaticResourceDir          string
+		ForbidStaticResourceSuffix []string
 	}
 	Conf func(conf *Config)
 )
@@ -53,14 +55,16 @@ type (
 func New(c ...Conf) (*Engine, error) {
 	cpu := runtime.NumCPU()
 	conf := &Config{
-		PHPExecPath:    zutil.IfVal(zutil.IsWin(), "php.exe", "php").(string),
-		Command:        "php/zls saiyan start",
-		WorkerSum:      uint64(cpu),
-		MaxWorkerSum:   uint64(cpu * 2),
-		ReleaseTime:    1800,
-		MaxRequests:    10240,
-		MaxWaitTimeout: 60,
-		MaxExecTimeout: 180,
+		PHPExecPath:                zutil.IfVal(zutil.IsWin(), "php.exe", "php").(string),
+		Command:                    "php/zls saiyan start",
+		WorkerSum:                  uint64(cpu),
+		MaxWorkerSum:               uint64(cpu * 2),
+		ReleaseTime:                1800,
+		MaxRequests:                10240,
+		MaxWaitTimeout:             60,
+		MaxExecTimeout:             180,
+		StaticResourceDir:          "php/public",
+		ForbidStaticResourceSuffix: []string{".php"},
 	}
 	if len(c) > 0 {
 		c[0](conf)
@@ -73,14 +77,18 @@ func New(c ...Conf) (*Engine, error) {
 		conf.MaxWorkerSum = conf.WorkerSum / 2
 	}
 	conf.finalMaxWorkerSum = conf.MaxWorkerSum * 2
+	conf.StaticResourceDir = strings.TrimSuffix(conf.StaticResourceDir, "/")
+
 	e := &Engine{
 		conf:       conf,
 		pool:       make(chan *work, conf.finalMaxWorkerSum),
 		collectErr: &EngineCollect{},
 	}
+
 	if err := testPHP(conf.PHPExecPath); err != nil {
 		return e, err
 	}
+
 	for i := uint64(0); i < conf.WorkerSum; i++ {
 		e.aliveWorkerSumWithLock(1, true)
 		w, err := e.newWorker()

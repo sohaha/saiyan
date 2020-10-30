@@ -62,7 +62,7 @@ func (e *Engine) exportFile(file string) (string, bool) {
 	ext := filepath.Ext(file)
 	if ext == "" {
 		file = file + "index.html"
-		ext = filepath.Ext(file)
+		ext = ".html"
 	}
 	if !zfile.FileExist(file) {
 		return "", false

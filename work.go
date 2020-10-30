@@ -90,7 +90,7 @@ func New(c ...Conf) (*Engine, error) {
 	}
 
 	for i := uint64(0); i < conf.WorkerSum; i++ {
-		e.aliveWorkerSumWithLock(1, true)
+		e.collectErr.aliveWorkerSum++
 		w, err := e.newWorker()
 		if err == nil {
 			err = testWork(e, w)
@@ -121,7 +121,10 @@ func New(c ...Conf) (*Engine, error) {
 }
 
 func (e *Engine) Cap() uint64 {
-	return e.aliveWorkerSumWithLock(0, false)
+	e.mutex.Lock()
+	aliveWorkerSum := e.collectErr.aliveWorkerSum
+	e.mutex.Unlock()
+	return aliveWorkerSum
 }
 
 func (e *Engine) Collect() EngineCollect {
@@ -141,7 +144,7 @@ func (e *Engine) release(alive uint64) {
 		i := alive
 		for {
 			e.mutex.Lock()
-			if e.collectErr.aliveWorkerSum <= e.conf.WorkerSum || i == 0 {
+			if e.collectErr.aliveWorkerSum == 0 || (e.collectErr.aliveWorkerSum <= e.conf.WorkerSum || i == 0) {
 				e.mutex.Unlock()
 				break
 			}
@@ -168,7 +171,9 @@ func (e *Engine) Release(aliveWorker ...uint64) {
 	if len(aliveWorker) > 0 {
 		alive = aliveWorker[0]
 	}
-	current := e.aliveWorkerSumWithLock(0, false)
+	e.mutex.Lock()
+	current := e.collectErr.aliveWorkerSum
+	e.mutex.Unlock()
 	if current <= alive {
 		return
 	}
@@ -255,7 +260,9 @@ func (e *Engine) Send(data []byte, flags byte) (result []byte, prefix Prefix, er
 }
 
 func (e *Engine) closePool(w *work) {
-	e.aliveWorkerSumWithLock(-1, true)
+	e.mutex.Lock()
+	e.collectErr.aliveWorkerSum--
+	e.mutex.Unlock()
 	w.close()
 }
 

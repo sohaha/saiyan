@@ -78,21 +78,6 @@ func (p Prefix) WithSize(size uint64) Prefix {
 	return p
 }
 
-func (e *Engine) aliveWorkerSumWithLock(i int64, upload bool) uint64 {
-	aliveWorkerSum := uint64(0)
-	if upload {
-		e.mutex.Lock()
-		aliveWorkerSum = e.collectErr.aliveWorkerSum + uint64(i)
-		e.collectErr.aliveWorkerSum = aliveWorkerSum
-		e.mutex.Unlock()
-	} else {
-		e.mutex.RLock()
-		aliveWorkerSum = e.collectErr.aliveWorkerSum
-		e.mutex.RUnlock()
-	}
-	return aliveWorkerSum
-}
-
 func testWork(e *Engine, p *work) error {
 	errTip := fmt.Errorf("php service is illegal. Docs: %v\n", "https://docs.73zls.com/zlsgo/#/bd5f3e29-b914-4d20-aa48-5f7c9d629d2b")
 	pid := strconv.Itoa(os.Getpid())

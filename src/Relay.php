@@ -66,6 +66,10 @@ class Relay
         }
         $adopt = $result !== '';
         if ($adopt && ($flags & Parse::PAYLOAD_EMPTY)) {
+            $data = @json_decode($result, true) ?: [];
+            if ($pid = Z::arrayGet($data, 'pid')) {
+                Z::factory('\Zls\Saiyan\Operation', true)->writePid($pid);
+            }
             $this->send($result, Parse::PAYLOAD_RAW);
             return null;
         }

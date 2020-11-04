@@ -3,9 +3,10 @@ package saiyan
 import (
 	"context"
 	"errors"
-	"github.com/sohaha/zlsgo/znet"
 	"sync"
 	"time"
+
+	"github.com/sohaha/zlsgo/znet"
 )
 
 type saiyanVar struct {
@@ -38,7 +39,10 @@ func (e *Engine) pubPool(w *work) {
 
 func (e *Engine) getPool() (*work, error) {
 	check := func(w *work) (*work, error) {
-		if w == nil || w.Close {
+		if w == nil {
+			return nil, ErrWorkerClose
+		}
+		if w.Close {
 			go e.closePool(w)
 			return e.getPool()
 		}
@@ -64,7 +68,7 @@ func (e *Engine) getPool() (*work, error) {
 		case alive < e.conf.MaxWorkerSum:
 			e.collectErr.aliveWorkerSum++
 			e.mutex.Unlock()
-			return e.newWorker()
+			return e.newWorker(true)
 		}
 	}
 	return nil, errors.New("failed to initialize worker")

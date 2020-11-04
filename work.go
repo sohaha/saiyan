@@ -12,14 +12,17 @@ import (
 
 	"github.com/sohaha/zlsgo/zjson"
 	"github.com/sohaha/zlsgo/zstring"
-	"github.com/sohaha/zlsgo/zutil"
 )
 
 type (
 	Engine struct {
 		conf       *Config
+		phpPath    string
 		pool       chan *work
+		stop       chan struct{}
+		restart    chan struct{}
 		mutex      sync.RWMutex
+		mainCmd    *exec.Cmd
 		collectErr *EngineCollect
 	}
 	EngineCollect struct {
@@ -52,10 +55,9 @@ type (
 	Conf func(conf *Config)
 )
 
-func New(c ...Conf) (*Engine, error) {
+func New(c ...Conf) (e *Engine, err error) {
 	cpu := runtime.NumCPU()
 	conf := &Config{
-		PHPExecPath:                zutil.IfVal(zutil.IsWin(), "php.exe", "php").(string),
 		Command:                    "php/zls saiyan start",
 		WorkerSum:                  uint64(cpu),
 		MaxWorkerSum:               uint64(cpu * 2),
@@ -79,24 +81,29 @@ func New(c ...Conf) (*Engine, error) {
 	conf.finalMaxWorkerSum = conf.MaxWorkerSum * 2
 	conf.StaticResourceDir = strings.TrimSuffix(conf.StaticResourceDir, "/")
 
-	e := &Engine{
+	e = &Engine{
 		conf:       conf,
 		pool:       make(chan *work, conf.finalMaxWorkerSum),
 		collectErr: &EngineCollect{},
+		stop:       make(chan struct{}),
+		restart:    make(chan struct{}),
 	}
 
-	if err := testPHP(conf.PHPExecPath); err != nil {
-		return e, err
+	if e.phpPath, err = getPHP(conf.PHPExecPath); err != nil {
+		return
+	}
+
+	e.mainCmd, err = testWork(e)
+	if err != nil {
+		return
 	}
 
 	for i := uint64(0); i < conf.WorkerSum; i++ {
 		e.collectErr.aliveWorkerSum++
-		w, err := e.newWorker()
-		if err == nil {
-			err = testWork(e, w)
-		}
+		var w *work
+		w, err = e.newWorker(true)
 		if err != nil {
-			return e, err
+			return
 		}
 		e.pubPool(w)
 	}
@@ -117,7 +124,7 @@ func New(c ...Conf) (*Engine, error) {
 			}
 		}()
 	}
-	return e, nil
+	return
 }
 
 func (e *Engine) Cap() uint64 {
@@ -134,9 +141,21 @@ func (e *Engine) Collect() EngineCollect {
 	return *e.collectErr
 }
 
+func (e *Engine) IsClose() bool {
+	select {
+	case <-e.stop:
+		return true
+	default:
+		return false
+	}
+}
+
 func (e *Engine) Close() {
-	e.release(0)
-	close(e.pool)
+	e.stop <- struct{}{}
+}
+
+func (e *Engine) Restart() {
+	e.restart <- struct{}{}
 }
 
 func (e *Engine) release(alive uint64) {
@@ -266,12 +285,15 @@ func (e *Engine) closePool(w *work) {
 	w.close()
 }
 
-func (e *Engine) newWorker() (*work, error) {
+func (e *Engine) newWorker(auto bool) (*work, error) {
+	if e.IsClose() {
+		return nil, ErrWorkerClose
+	}
 	var (
 		err error
 		in  io.ReadCloser
 		out io.WriteCloser
-		cmd = exec.Command(e.conf.PHPExecPath, strings.Split(e.conf.Command, " ")...)
+		cmd = exec.Command(e.phpPath, strings.Split(e.conf.Command, " ")...)
 	)
 	cmd.Env = append(cmd.Env, "SAIYAN_VERSION="+VERSUION)
 	cmd.Env = append(cmd.Env, "ZLSPHP_WORKS=saiyan")
@@ -290,13 +312,14 @@ func (e *Engine) newWorker() (*work, error) {
 		Connect: connect,
 		Close:   false,
 	}
-	go func() {
-		_ = cmd.Wait()
-		if w != nil {
-			w.Close = true
-			w = nil
-		}
-	}()
+	if auto {
+		go func() {
+			_ = cmd.Wait()
+			if w != nil {
+				w.Close = true
+			}
+		}()
+	}
 	return w, nil
 }
 

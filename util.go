@@ -4,11 +4,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"os"
-	"strconv"
+	"os/exec"
+	"strings"
 
+	"github.com/sohaha/zlsgo/zfile"
+	"github.com/sohaha/zlsgo/zjson"
 	"github.com/sohaha/zlsgo/zshell"
-	"github.com/sohaha/zlsgo/zstring"
+	"github.com/sohaha/zlsgo/zutil"
 )
 
 const (
@@ -22,9 +24,10 @@ const (
 )
 
 var (
-	ErrExecTimeout  = errors.New("maximum execution time ")
+	ErrExecTimeout  = errors.New("maximum execution time")
 	ErrProcessDeath = errors.New("process death")
 	ErrWorkerBusy   = errors.New("worker busy")
+	ErrWorkerClose  = errors.New("worker close")
 	ErrWorkerFailed = errors.New("failed to initialize worker")
 )
 
@@ -78,28 +81,69 @@ func (p Prefix) WithSize(size uint64) Prefix {
 	return p
 }
 
-func testWork(e *Engine, p *work) error {
+func testWork(e *Engine) (*exec.Cmd, error) {
+	p, err := e.newWorker(false)
+	if err != nil {
+		return nil, err
+	}
+	cmd := p.Cmd
 	errTip := fmt.Errorf("php service is illegal. Docs: %v\n", "https://docs.73zls.com/zlsgo/#/bd5f3e29-b914-4d20-aa48-5f7c9d629d2b")
-	pid := strconv.Itoa(os.Getpid())
-	data, _, err := p.send(zstring.String2Bytes(pid), PayloadEmpty, 2)
+	pid := cmd.Process.Pid
+	json, _ := zjson.SetBytes([]byte(""), "pid", pid)
+	data, _, err := p.send(json, PayloadEmpty, 2)
 	if err != nil {
 		code, _, errStr, _ := zshell.Run(e.conf.PHPExecPath + " " + e.conf.Command)
 		if code != 0 && errStr != "" {
 			errTip = errors.New(errStr)
 		}
-		return errTip
+		return cmd, errTip
 	}
-	rPid := zstring.Bytes2String(data)
+	rPid := zjson.GetBytes(data, "pid").Int()
 	if pid != rPid {
-		return errTip
+		return cmd, errTip
 	}
-	return nil
+	go func() {
+		err := cmd.Wait()
+		if err == nil {
+			e.stop <- struct{}{}
+			return
+		}
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "interrupt") || strings.Contains(errMsg, "exit status 1") || strings.Contains(errMsg, "terminated") {
+			e.restart <- struct{}{}
+		} else {
+			e.stop <- struct{}{}
+		}
+	}()
+	go func() {
+		select {
+		case <-e.restart:
+			e.release(0)
+			cmd, err := testWork(e)
+			if err != nil {
+				e.stop <- struct{}{}
+				return
+			}
+			e.mainCmd = cmd
+		case <-e.stop:
+			e.release(0)
+			close(e.pool)
+		}
+	}()
+	return cmd, nil
 }
 
-func testPHP(php string) error {
-	code, _, _, _ := zshell.Run(php + " -v")
-	if code != 0 {
-		return errors.New("please install PHP first")
+func getPHP(phpPath string) (string, error) {
+	php := zutil.IfVal(zutil.IsWin(), "php.exe", "php").(string)
+	phpPaths := []string{php, zfile.RealPath("./bin/" + php), zfile.RealPath("./bin/php/" + php)}
+	if phpPath != "" {
+		phpPaths = append([]string{phpPath}, phpPaths...)
 	}
-	return nil
+	for _, v := range phpPaths {
+		code, _, _, _ := zshell.Run(v + " -v")
+		if code == 0 {
+			return v, nil
+		}
+	}
+	return "", errors.New("please install PHP first")
 }

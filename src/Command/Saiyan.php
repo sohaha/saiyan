@@ -25,6 +25,11 @@ class Saiyan extends Command
         }
     }
 
+    public function restart($args)
+    {
+        Z::factory('\Zls\Saiyan\Operation', true)->restart();
+    }
+
     public function start($args)
     {
         $relay = new Relay(STDIN, STDOUT);
@@ -76,7 +81,7 @@ class Saiyan extends Command
     public function commands()
     {
         return [
-            ' start' => ['Start the saiyan server']
+            ' restart' => ['Restart the saiyan server'],
         ];
     }
 }

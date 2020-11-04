@@ -295,6 +295,7 @@ func (e *Engine) newWorker(auto bool) (*work, error) {
 		out io.WriteCloser
 		cmd = exec.Command(e.phpPath, strings.Split(e.conf.Command, " ")...)
 	)
+	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "SAIYAN_VERSION="+VERSUION)
 	cmd.Env = append(cmd.Env, "ZLSPHP_WORKS=saiyan")
 	if in, err = cmd.StdoutPipe(); err != nil {

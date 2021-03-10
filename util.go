@@ -15,7 +15,7 @@ import (
 
 const (
 	BufferSize          = 10485760 // 10 Mb
-	VERSUION            = "v1.0.0"
+	VERSUION            = "v1.0.1"
 	HttpErrKey          = "Saiyan_Err"
 	PayloadEmpty   byte = 2
 	PayloadRaw     byte = 4
@@ -128,6 +128,9 @@ func testWork(e *Engine) (*exec.Cmd, error) {
 		case <-e.stop:
 			e.release(0)
 			close(e.pool)
+			if e.mainCmd != nil {
+				_ = e.mainCmd.Process.Kill()
+			}
 		}
 	}()
 	return cmd, nil
@@ -145,5 +148,6 @@ func getPHP(phpPath string) (string, error) {
 			return v, nil
 		}
 	}
+	// todo Support for automatic installation of php on Windows
 	return "", errors.New("please install PHP first")
 }

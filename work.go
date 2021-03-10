@@ -58,14 +58,14 @@ type (
 func New(c ...Conf) (e *Engine, err error) {
 	cpu := runtime.NumCPU()
 	conf := &Config{
-		Command:                    "php/zls saiyan start",
+		Command:                    "zls saiyan start",
 		WorkerSum:                  uint64(cpu),
 		MaxWorkerSum:               uint64(cpu * 2),
 		ReleaseTime:                1800,
 		MaxRequests:                10240,
 		MaxWaitTimeout:             60,
 		MaxExecTimeout:             180,
-		StaticResourceDir:          "php/public",
+		StaticResourceDir:          "public",
 		ForbidStaticResourceSuffix: []string{".php"},
 	}
 	if len(c) > 0 {
@@ -152,6 +152,10 @@ func (e *Engine) IsClose() bool {
 
 func (e *Engine) Close() {
 	e.stop <- struct{}{}
+	if e.mainCmd != nil {
+		_ = e.mainCmd.Process.Kill()
+	}
+	e.release(0)
 }
 
 func (e *Engine) Restart() {
@@ -295,6 +299,7 @@ func (e *Engine) newWorker(auto bool) (*work, error) {
 		out io.WriteCloser
 		cmd = exec.Command(e.phpPath, strings.Split(e.conf.Command, " ")...)
 	)
+	bindCmd(cmd)
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "SAIYAN_VERSION="+VERSUION)
 	cmd.Env = append(cmd.Env, "ZLSPHP_WORKS=saiyan")
@@ -350,11 +355,4 @@ func (w *work) send(data []byte, flags byte, maxExecTimeout uint64) (result []by
 		kill <- true
 	}
 	return
-}
-
-func (w *work) close() {
-	if w != nil {
-		_ = w.Connect.Close()
-		_ = w.Cmd.Process.Signal(os.Kill)
-	}
 }

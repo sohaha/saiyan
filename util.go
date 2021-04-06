@@ -180,6 +180,9 @@ func download() (err error) {
 	bar := NewBar(zlog.ColorTextWrap(zlog.ColorWhite, "[TIPS] ") + " downloading: ")
 	http := zhttp.New()
 	http.SetTimeout(time.Minute * 6)
+	defer func() {
+		fmt.Println()
+	}()
 	res, err = http.Get(u, zhttp.DownloadProgress(func(current, total int64) {
 		bar.Play(float64(current) / float64(total) * 100)
 	}))

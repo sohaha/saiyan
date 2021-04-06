@@ -51,6 +51,7 @@ type (
 		TrimPrefix                 string
 		StaticResourceDir          string
 		ForbidStaticResourceSuffix []string
+		Env                        []string
 	}
 	Conf func(conf *Config)
 )
@@ -66,12 +67,15 @@ func New(c ...Conf) (e *Engine, err error) {
 		MaxWaitTimeout:             60,
 		MaxExecTimeout:             180,
 		StaticResourceDir:          "public",
+		Env:                        []string{},
 		ForbidStaticResourceSuffix: []string{".php"},
 	}
 	if len(c) > 0 {
 		c[0](conf)
 	}
-
+	conf.Env = append(conf.Env, os.Environ()...)
+	conf.Env = append(conf.Env, "SAIYAN_VERSION="+VERSUION)
+	conf.Env = append(conf.Env, "ZLSPHP_WORKS=saiyan")
 	if conf.WorkerSum == 0 {
 		conf.WorkerSum = 1
 	}
@@ -89,7 +93,7 @@ func New(c ...Conf) (e *Engine, err error) {
 		restart:    make(chan struct{}),
 	}
 
-	if e.phpPath, err = getPHP(conf.PHPExecPath); err != nil {
+	if e.phpPath, err = getPHP(conf.PHPExecPath,true); err != nil {
 		return
 	}
 
@@ -300,9 +304,7 @@ func (e *Engine) newWorker(auto bool) (*work, error) {
 		cmd = exec.Command(e.phpPath, strings.Split(e.conf.Command, " ")...)
 	)
 	bindCmd(cmd)
-	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "SAIYAN_VERSION="+VERSUION)
-	cmd.Env = append(cmd.Env, "ZLSPHP_WORKS=saiyan")
+	cmd.Env = e.conf.Env
 	if in, err = cmd.StdoutPipe(); err != nil {
 		return nil, err
 	}

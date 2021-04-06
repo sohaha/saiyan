@@ -6,7 +6,6 @@ use Z;
 
 class Relay
 {
-
     private $in;
     private $out;
     /**

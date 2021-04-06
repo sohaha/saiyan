@@ -14,7 +14,7 @@ class Saiyan extends Command
     public function execute($args)
     {
         try {
-            $active = z::arrayGet($args, 2, 'help');
+            $active = Z::arrayGet($args, 2, 'help');
             if (method_exists($this, $active)) {
                 $this->$active($args);
             } else {

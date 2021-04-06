@@ -1,11 +1,17 @@
 package saiyan
 
 import (
+	"archive/zip"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/sohaha/zlsgo/zhttp"
+	"github.com/sohaha/zlsgo/zlog"
+	"io"
+	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/sohaha/zlsgo/zfile"
 	"github.com/sohaha/zlsgo/zjson"
@@ -30,6 +36,12 @@ var (
 	ErrWorkerClose  = errors.New("worker close")
 	ErrWorkerFailed = errors.New("failed to initialize worker")
 )
+
+var log = zlog.New()
+
+func init() {
+	log.ResetFlags(zlog.BitLevel)
+}
 
 type Prefix [17]byte
 
@@ -136,8 +148,9 @@ func testWork(e *Engine) (*exec.Cmd, error) {
 	return cmd, nil
 }
 
-func getPHP(phpPath string) (string, error) {
-	php := zutil.IfVal(zutil.IsWin(), "php.exe", "php").(string)
+func getPHP(phpPath string, autoInstall bool) (string, error) {
+	isWin := zutil.IsWin()
+	php := zutil.IfVal(isWin, "php.exe", "php").(string)
 	phpPaths := []string{php, zfile.RealPath("./bin/" + php), zfile.RealPath("./bin/php/" + php)}
 	if phpPath != "" {
 		phpPaths = append([]string{phpPath}, phpPaths...)
@@ -149,5 +162,61 @@ func getPHP(phpPath string) (string, error) {
 		}
 	}
 	// todo Support for automatic installation of php on Windows
+	if isWin && autoInstall {
+		err := download()
+		if err != nil {
+			return "", err
+		}
+		return getPHP(zfile.RealPath("./php_bin/php.exe"), false)
+	}
 	return "", errors.New("please install PHP first")
+}
+
+func download() (err error) {
+	p := zfile.RealPath("php_bin", true)
+	u := "https://windows.php.net/downloads/releases/php-7.4.16-nts-Win32-vc15-x64.zip"
+	log.Tipsf("downloading and installing PHP\n")
+	var res *zhttp.Res
+	bar := NewBar(zlog.ColorTextWrap(zlog.ColorWhite, "[TIPS] ") + " downloading: ")
+	http := zhttp.New()
+	http.SetTimeout(time.Minute * 6)
+	res, err = http.Get(u, zhttp.DownloadProgress(func(current, total int64) {
+		bar.Play(float64(current) / float64(total) * 100)
+	}))
+	if err != nil {
+		return errors.New("download failed, please install it manually")
+	}
+	path := zfile.RealPath(zfile.TmpPath("php"), true) + "php.zip"
+	err = res.ToFile(path)
+	if err != nil {
+		return
+	}
+	defer zfile.Rmdir(path)
+	r, err := zip.OpenReader(path)
+	if err != nil {
+		return
+	}
+	defer r.Close()
+	for _, innerFile := range r.File {
+		info := innerFile.FileInfo()
+		if info.IsDir() {
+			err = os.MkdirAll(p+innerFile.Name, os.ModePerm)
+			if err != nil {
+				return err
+			}
+			continue
+		}
+		srcFile, err := innerFile.Open()
+		if err != nil {
+			continue
+		}
+		defer srcFile.Close()
+		newFile, err := os.Create(p + innerFile.Name)
+		if err != nil {
+			continue
+		}
+		_, _ = io.Copy(newFile, srcFile)
+		_ = newFile.Close()
+	}
+	return nil
 }
